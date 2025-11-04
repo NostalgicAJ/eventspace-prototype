@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EventSpace — Sponsor & Customer Live Booking (Static v4)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:linear-gradient(180deg,#f0f5ff, #f7f7fb);
+      --panel:#ffffff;--ink:#0f172a;--muted:#64748b;--brand:#2563eb;--border:#e5e7eb;--success:#16a34a;--accent:#7c3aed
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu;background:var(--bg);color:var(--ink)}
+    .wrap{max-width:1200px;margin:0 auto;padding:24px}
+    .hero{background:radial-gradient(circle at 20% -10%, #dbeafe, transparent 30%), radial-gradient(circle at 80% -10%, #ede9fe, transparent 25%);border:1px solid var(--border);border-radius:18px;padding:18px 20px;box-shadow:0 10px 30px rgba(37,99,235,.08)}
+    .title{font-weight:800;font-size:26px;color:var(--brand);text-align:center}
+    .sub{color:var(--muted);text-align:center;margin-top:6px}
+    .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
+    .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:16px;box-shadow:0 8px 28px rgba(2,6,23,.06)}
+    .btn{border:1px solid var(--border);background:#fff;border-radius:12px;padding:10px 14px;cursor:pointer;transition:all .15s ease;font-weight:600}
+    .btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(2,6,23,.08)}
+    .btn.primary{background:linear-gradient(180deg,#3b82f6,#2563eb);color:#fff;border-color:transparent}
+    .btn.ghost{background:transparent}
+    .btn.small{padding:6px 10px;font-size:12px}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .pill{display:inline-block;padding:6px 12px;border:1px solid var(--border);border-radius:999px;color:#0f172a;background:#fff;font-size:12px}
+    input,select{padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:#fff;width:100%}
+    .map{height:420px;border:1px dashed var(--border);border-radius:16px;background:repeating-linear-gradient(45deg,#fafafa,#fafafa 10px,#f0f0f0 10px,#f0f0f0 20px);display:grid;grid-template-columns:repeat(8,1fr);gap:10px;padding:10px}
+    .stall{background:#fff;border:1px solid var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;transition:all .15s ease;padding:8px;font-size:12px}
+    .stall:hover{transform:translateY(-2px);border-color:#94a3b8}
+    .stall.booked{background:#ecfeff;border-color:#06b6d4}
+    .stall.sponsored{background:#eef2ff;border-color:#6366f1}
+    .legend{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+    .dot{width:12px;height:12px;border-radius:3px;display:inline-block;border:1px solid var(--border);background:#fff}
+    .dot.booked{background:#ecfeff;border-color:#06b6d4}
+    .dot.sponsored{background:#eef2ff;border-color:#6366f1}
+    .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+    .kpi{background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center}
+    .kpi .label{font-size:12px;color:var(--muted)}
+    .kpi .value{font-size:22px;font-weight:800}
+    .divider{height:1px;background:var(--border);margin:12px 0}
+    .footer{text-align:center;color:var(--muted);font-size:12px;margin-top:8px}
+    .notice{font-size:12px;color:var(--muted)}
+    ul.clean{list-style:none;margin:0;padding:0}
+    ul.clean li{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--border)}
+    .hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  </style>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <div class="title">EventSpace — Live Stall Booking</div>
+      <div class="sub">Sponsor or Customer? Pick your role. Customers see the final layout; Sponsors can book stalls, add add-ons, set days (max 5), and see savings & time benefits.</div>
+    </div>
+  </div>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useMemo, useState } = React;
+    const clamp = (n, min, max)=> Math.max(min, Math.min(max, n));
+    const currency = (n)=> "₹" + (n||0).toLocaleString("en-IN");
+
+    // Seed stalls
+    const seedStalls = Array.from({length: 48}).map((_,i)=>({ id: i+1, status:"available", price: 1500 + (i%5)*250, type: (i%6===0) ? "Platinum" : (i%5===0 ? "Gold" : "Standard"), sponsor:null }));
+
+    const ADDONS = [
+      { id:"lights", name:"Stage Lights", pricePerDay: 1200 },
+      { id:"sound", name:"Sound System", pricePerDay: 1500 },
+      { id:"led", name:"LED Wall", pricePerDay: 3000 },
+      { id:"barriers", name:"Crowd Barriers", pricePerDay: 600 },
+    ];
+
+    function BarChart({ manual, online }){
+      const width=520, height=220, pad=36;
+      const max = Math.max(manual, online, 1);
+      const mH = (manual/max)*(height-2*pad);
+      const oH = (online/max)*(height-2*pad);
+      return (
+        <svg width="100%" viewBox={"0 0 "+width+" "+height}>
+          <rect x="0" y="0" width={width} height={height} fill="#ffffff" stroke="#e5e7eb" />
+          <line x1={pad} y1={height-pad} x2={width-pad} y2={height-pad} stroke="#9ca3af" />
+          <g>
+            <rect x={width/3-28} y={height-pad-mH} width="56" height={mH} fill="#c7d2fe" />
+            <text x={width/3} y={height-pad+16} textAnchor="middle" fontSize="12">Manual</text>
+            <text x={width/3} y={height-pad-mH-6} textAnchor="middle" fontSize="12">{manual.toFixed(1)}h</text>
+          </g>
+          <g>
+            <rect x={2*width/3-28} y={height-pad-oH} width="56" height={oH} fill="#93c5fd" />
+            <text x={2*width/3} y={height-pad+16} textAnchor="middle" fontSize="12">Online</text>
+            <text x={2*width/3} y={height-pad-oH-6} textAnchor="middle" fontSize="12">{online.toFixed(1)}h</text>
+          </g>
+        </svg>
+      );
+    }
+
+    function App(){
+      const [role, setRole] = useState(null); // "Sponsor" | "Customer"
+      const [stalls, setStalls] = useState(seedStalls);
+      const [brand, setBrand] = useState("");
+      const [days, setDays] = useState(1);
+      const [cart, setCart] = useState([]);
+      const [addonQty, setAddonQty] = useState(Object.fromEntries(ADDONS.map(a=>[a.id,0])));
+
+      // Derived
+      const sponsored = stalls.filter(s=>s.status==="sponsored");
+      const sponsoredCount = sponsored.length;
+      const bookedCount = stalls.filter(s=>s.status==="booked").length;
+      const availableCount = stalls.filter(s=>s.status==="available").length;
+      const totalStalls = stalls.length;
+      const occupancy = Math.round(((sponsoredCount)/totalStalls)*100); // Customer-facing: only final sponsored layout
+
+      const totalAddonItems = Object.values(addonQty).reduce((a,b)=>a+(Number(b)||0),0);
+
+      // Pricing / Discounts
+      const perDayStalls = sponsored.reduce((sum,s)=>sum+s.price,0);
+      const perDayAddons = Object.entries(addonQty).reduce((sum,[id,qty])=>{
+        const a = ADDONS.find(x=>x.id===id);
+        return sum + (a ? a.pricePerDay * (Number(qty)||0) : 0);
+      },0);
+      const perDayBase = perDayStalls + perDayAddons;
+
+      const dayCount = clamp(Number(days)||1, 1, 5);
+      const dayDiscount = dayCount > 2 ? 0.08 : 0.0;                  // 8% off for 3–5 days
+      const bundleCount = sponsoredCount + totalAddonItems;
+      const bundleDiscount = bundleCount >= 3 ? 0.05 : 0.0;           // 5% off for 3+ combined items
+      const combinedFactor = (1 - dayDiscount) * (1 - bundleDiscount);
+      const projectedSpend = perDayBase * dayCount * combinedFactor;
+      const projectedSavings = perDayBase * dayCount * (1 - combinedFactor);
+
+      // Time metric (sensible, transparent)
+      // Manual: 2.0h/stall + 0.75h/addon + 4h overhead
+      // Online: 0.6h/stall + 0.25h/addon + 1h overhead
+      const manualHours = sponsoredCount*2.0 + totalAddonItems*0.75 + 4;
+      const onlineHours = sponsoredCount*0.6 + totalAddonItems*0.25 + 1;
+      const hoursSaved = Math.max(0, manualHours - onlineHours);
+
+      // Role interactions
+      const clickStallSponsor = (stall)=>{
+        if(stall.status==="sponsored") return; // can't change
+        if(stall.status==="available"){
+          // select -> booked/cart
+          setCart(prev => prev.some(c=>c.id===stall.id) ? prev : [...prev, stall]);
+          setStalls(stalls.map(s=> s.id===stall.id ? {...s, status:"booked"} : s ));
+        } else if(stall.status==="booked"){
+          // deselect -> back to available
+          setCart(prev => prev.filter(c=>c.id!==stall.id));
+          setStalls(stalls.map(s=> s.id===stall.id ? {...s, status:"available"} : s ));
+        }
+      };
+
+      const payAndSponsor = ()=>{
+        if(!brand || cart.length===0) return;
+        setStalls(stalls.map(s=> cart.some(c=>c.id===s.id) ? {...s, status:"sponsored", sponsor: brand } : s ));
+        setCart([]);
+      };
+
+      const setAddon = (id, qty)=>{
+        const n = clamp(Number(qty)||0, 0, 99);
+        setAddonQty({...addonQty, [id]: n});
+      };
+
+      return (
+        <div className="wrap">
+          <div className="grid" style={{marginTop:16}}>
+            <div className="card" style={{gridColumn:'span 8'}}>
+              {!role && (
+                <div>
+                  <div className="hdr">
+                    <div style={{fontWeight:800,fontSize:18}}>Choose your role</div>
+                  </div>
+                  <div className="row" style={{justifyContent:'flex-start'}}>
+                    <button className="btn primary" onClick={()=>setRole("Sponsor")}>I'm a Sponsor</button>
+                    <button className="btn" onClick={()=>setRole("Customer")}>I'm a Customer</button>
+                  </div>
+                  <div className="divider"></div>
+                  <div className="notice">Customers view the <b>final stall layout</b> (Sponsored only). Sponsors can click stalls to <b>toggle selection</b> (Available ↔ Booked) and then pay to sponsor.</div>
+                </div>
+              )}
+
+              {role==="Customer" && (
+                <div>
+                  <div className="hdr">
+                    <div className="row" style={{gap:10}}>
+                      <span className="pill">Role: Customer</span>
+                      <span className="pill">Total Sponsors: {sponsoredCount}</span>
+                      <span className="pill">Occupancy: {occupancy}%</span>
+                    </div>
+                    <button className="btn" onClick={()=>setRole(null)}>Change Role</button>
+                  </div>
+                  <div className="map">
+                    {stalls.map(stall => (
+                      <div key={stall.id}
+                           className={"stall "+(stall.status==="sponsored"?"sponsored ":"")}>
+                        <div>#{stall.id}{stall.sponsor ? (" · " + stall.sponsor) : ""}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="divider"></div>
+                  <div className="legend">
+                    <span className="dot"></span> Available (hidden for customers)
+                    <span className="dot sponsored" style={{marginLeft:8}}></span> Sponsored (final layout)
+                  </div>
+                </div>
+              )}
+
+              {role==="Sponsor" && (
+                <div>
+                  <div className="hdr">
+                    <div className="row" style={{gap:10}}>
+                      <span className="pill">Role: Sponsor</span>
+                      <span className="pill">Cart: {cart.length}</span>
+                    </div>
+                    <button className="btn" onClick={()=>setRole(null)}>Change Role</button>
+                  </div>
+                  <div className="row" style={{gap:12, marginBottom:8}}>
+                    <input placeholder="Your Brand (shown on stalls)" value={brand} onChange={e=>setBrand(e.target.value)} style={{width:260}} />
+                    <div className="row" style={{gap:6}}>
+                      <label style={{fontSize:12, color:'#6b7280'}}>Days (max 5):</label>
+                      <input type="number" min="1" max="5" value={days} onChange={e=>setDays(clamp(e.target.value,1,5))} style={{width:90}}/>
+                    </div>
+                  </div>
+                  <div className="map">
+                    {stalls.map(stall => (
+                      <div key={stall.id}
+                           className={"stall "+(stall.status==="booked"?"booked ":"")+(stall.status==="sponsored"?"sponsored ":"")}
+                           onClick={()=>clickStallSponsor(stall)}>
+                        <div>
+                          <div>#{stall.id} · {stall.type}</div>
+                          <div style={{fontWeight:700}}>{currency(stall.price)}/day</div>
+                          {stall.sponsor && <div style={{fontSize:11,color:'#6b7280'}}>Sponsor: {stall.sponsor}</div>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="divider"></div>
+                  <div className="grid">
+                    <div className="card" style={{gridColumn:'span 6'}}>
+                      <div style={{fontWeight:700, marginBottom:6}}>Cart (click a booked stall again to remove)</div>
+                      {cart.length===0 ? <div className="notice">No stalls in cart.</div> : (
+                        <ul className="clean">
+                          {cart.map(s=>(
+                            <li key={s.id}><span>Stall #{s.id} — {s.type}</span><span>{currency(s.price)}/day</span></li>
+                          ))}
+                        </ul>
+                      )}
+                      <div className="divider"></div>
+                      <button className="btn primary" onClick={payAndSponsor} disabled={!brand || cart.length===0}>Pay & Sponsor</button>
+                    </div>
+                    <div className="card" style={{gridColumn:'span 6'}}>
+                      <div style={{fontWeight:700, marginBottom:6}}>Add-ons (per day)</div>
+                      {ADDONS.map(a => (
+                        <div key={a.id} className="row" style={{justifyContent:'space-between'}}>
+                          <div>{a.name} <span className="notice">({currency(a.pricePerDay)}/day)</span></div>
+                          <input type="number" min="0" value={addonQty[a.id]} onChange={e=>setAddon(a.id, e.target.value)} style={{width:90}}/>
+                        </div>
+                      ))}
+                      <div className="divider"></div>
+                      <div className="row" style={{justifyContent:'space-between'}}><div>Days</div><b>{dayCount}</b></div>
+                      <div className="row" style={{justifyContent:'space-between'}}><div>Base per day</div><b>{currency(perDayBase)}</b></div>
+                      <div className="row" style={{justifyContent:'space-between'}}><div>Day discount</div><b>{Math.round(dayDiscount*100)}%</b></div>
+                      <div className="row" style={{justifyContent:'space-between'}}><div>Bundle discount</div><b>{Math.round(bundleDiscount*100)}%</b></div>
+                      <div className="row" style={{justifyContent:'space-between'}}><div><b>Projected spend</b></div><b>{currency(projectedSpend)}</b></div>
+                      <div className="row" style={{justifyContent:'space-between'}}><div>Projected savings</div><b style={{color:'#16a34a'}}>{currency(projectedSavings)}</b></div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="card" style={{gridColumn:'span 4'}}>
+              <div className="hdr">
+                <div style={{fontWeight:800}}>Live Analytics</div>
+                <span className="pill">Public</span>
+              </div>
+              <div className="divider"></div>
+              <div className="kpis">
+                <div className="kpi"><div className="label">Occupancy</div><div className="value">{occupancy}%</div></div>
+                <div className="kpi"><div className="label">Sponsored</div><div className="value">{sponsoredCount}/{totalStalls}</div></div>
+                <div className="kpi"><div className="label">Booked (hidden for customers)</div><div className="value">{bookedCount}</div></div>
+                <div className="kpi"><div className="label">Available</div><div className="value">{availableCount}</div></div>
+              </div>
+              <div className="divider"></div>
+              <div className="kpis">
+                <div className="kpi"><div className="label">Spend (proj.)</div><div className="value">{currency(projectedSpend)}</div></div>
+                <div className="kpi"><div className="label">Savings (proj.)</div><div className="value">{currency(projectedSavings)}</div></div>
+                <div className="kpi"><div className="label">Manual Hours</div><div className="value">{manualHours.toFixed(1)}h</div></div>
+                <div className="kpi"><div className="label">Online Hours</div><div className="value">{onlineHours.toFixed(1)}h</div></div>
+              </div>
+              <div className="divider"></div>
+              <BarChart manual={manualHours} online={onlineHours} />
+              <div className="notice">Hours are calculated from final sponsored layout + add-ons. Savings increase with more items or longer bookings (max 5 days).</div>
+            </div>
+          </div>
+          <div className="footer">EventSpace — Static v4 · Customers see final layout only · Sponsors can toggle stalls & add-ons · Discounts & sensible time metric</div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App/>);
+  </script>
+</body>
+</html>
